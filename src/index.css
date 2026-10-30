@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #0c0d0e;
+    color: #c0c0c0;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+  }
+}
+
+.font-dos {
+  font-family: 'VT323', 'Courier New', monospace;
+  letter-spacing: 0.05em;
+}
+
+.font-code {
+  font-family: 'Fira Code', 'Share Tech Mono', monospace;
+}
+
+/* CRT Scanlines Overlay */
+.crt-scanlines {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.35) 50%
+  );
+  background-size: 100% 3px;
+  pointer-events: none;
+}
+
+/* CRT Screen Curvature Illusion */
+.crt-screen-curved {
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.85), inset 0 0 15px rgba(0, 0, 0, 0.95);
+  border-radius: 12px;
+}
+
+/* Phosphor Glows */
+.glow-amber {
+  color: #ffb000;
+  text-shadow: 0 0 4px rgba(255, 176, 0, 0.75), 0 0 8px rgba(255, 176, 0, 0.4);
+}
+
+.glow-green {
+  color: #33ff33;
+  text-shadow: 0 0 4px rgba(51, 255, 51, 0.75), 0 0 8px rgba(51, 255, 51, 0.4);
+}
+
+.glow-white {
+  color: #f0f6fc;
+  text-shadow: 0 0 4px rgba(240, 246, 252, 0.65), 0 0 8px rgba(240, 246, 252, 0.3);
+}
+
+.glow-vga {
+  text-shadow: 0 0 3px rgba(170, 170, 170, 0.5);
+}
+
+/* Subtle CRT Flicker */
+@keyframes crt-flicker {
+  0% { opacity: 0.985; }
+  50% { opacity: 1; }
+  52% { opacity: 0.97; }
+  54% { opacity: 1; }
+  80% { opacity: 0.99; }
+  100% { opacity: 0.985; }
+}
+
+.animate-crt-flicker {
+  animation: crt-flicker 0.15s infinite;
+}
+
+/* Degauss Animation */
+@keyframes degauss-shake {
+  0% { transform: scale(1) rotate(0deg); filter: blur(0px) hue-rotate(0deg); }
+  15% { transform: scale(1.03) rotate(1deg); filter: blur(2px) hue-rotate(90deg); }
+  35% { transform: scale(0.97) rotate(-1.5deg); filter: blur(3px) hue-rotate(180deg); }
+  60% { transform: scale(1.02) rotate(0.8deg); filter: blur(1.5px) hue-rotate(270deg); }
+  85% { transform: scale(0.99) rotate(-0.4deg); filter: blur(0.5px) hue-rotate(360deg); }
+  100% { transform: scale(1) rotate(0deg); filter: blur(0px) hue-rotate(0deg); }
+}
+
+.animate-degauss {
+  animation: degauss-shake 0.8s ease-out;
+}
+
+/* Custom retro scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #111418;
+}
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 0px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
