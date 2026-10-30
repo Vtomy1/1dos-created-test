@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PhosphorTheme } from '../types/dos';
 import { audioSynth } from '../utils/audioSynth';
-import { Volume2, VolumeX, Sparkles, Monitor, Sliders } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, Monitor, Sliders, Zap } from 'lucide-react';
 
 interface CrtMonitorProps {
   children: React.ReactNode;
@@ -65,9 +65,22 @@ export const CrtMonitor: React.FC<CrtMonitorProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
+            {/* Primary Degauss Button in CRT Monitor Controls */}
+            <button
+              onClick={handleDegauss}
+              disabled={isDegaussing}
+              className={`px-2.5 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#30363d] border border-[#3b434d] text-[#e3b341] hover:text-[#f2cc60] transition flex items-center space-x-1.5 shadow-sm font-mono text-xs cursor-pointer ${
+                isDegaussing ? 'opacity-70 scale-95 ring-2 ring-amber-500/50 bg-amber-950/40 text-amber-300' : ''
+              }`}
+              title="Degauss CRT Tube (Demagnetize Shadow Mask with audioSynth.playDegauss)"
+            >
+              <Zap size={14} className={isDegaussing ? 'animate-bounce text-amber-400' : 'text-amber-400'} />
+              <span className="font-bold">{isDegaussing ? 'Degaussing...' : 'Degauss'}</span>
+            </button>
+
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="p-1.5 rounded bg-[#161b22] hover:bg-[#30363d] text-[#8b949e] hover:text-white transition flex items-center space-x-1"
+              className="px-2 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#30363d] border border-[#30363d] text-[#8b949e] hover:text-white transition flex items-center space-x-1"
               title="Display Settings"
             >
               <Sliders size={14} />
@@ -75,21 +88,11 @@ export const CrtMonitor: React.FC<CrtMonitorProps> = ({
             </button>
 
             <button
-              onClick={handleDegauss}
-              disabled={isDegaussing}
-              className="p-1.5 rounded bg-[#161b22] hover:bg-[#30363d] text-[#e3b341] hover:text-[#f2cc60] transition flex items-center space-x-1"
-              title="Degauss CRT Tube"
-            >
-              <Sparkles size={14} />
-              <span className="hidden md:inline text-[11px]">Degauss</span>
-            </button>
-
-            <button
               onClick={toggleMute}
-              className={`p-1.5 rounded transition ${
+              className={`p-1.5 rounded-lg border transition ${
                 isMuted
-                  ? 'bg-red-950/50 text-red-400'
-                  : 'bg-[#161b22] hover:bg-[#30363d] text-[#8b949e] hover:text-white'
+                  ? 'bg-red-950/50 border-red-800/80 text-red-400'
+                  : 'bg-[#161b22] hover:bg-[#30363d] border-[#30363d] text-[#8b949e] hover:text-white'
               }`}
               title={isMuted ? 'Unmute PC Speaker' : 'Mute PC Speaker'}
             >
@@ -100,9 +103,9 @@ export const CrtMonitor: React.FC<CrtMonitorProps> = ({
 
         {/* Display Settings drawer if toggled */}
         {showSettings && (
-          <div className="mb-4 p-3 bg-[#13161a] border border-[#30363d] rounded-lg flex flex-wrap items-center gap-4 text-xs text-[#c9d1d9]">
+          <div className="mb-4 p-3 bg-[#13161a] border border-[#30363d] rounded-xl flex flex-wrap items-center justify-between gap-4 text-xs text-[#c9d1d9] shadow-inner">
             <div className="flex items-center space-x-2">
-              <span className="text-[#8b949e]">Phosphor:</span>
+              <span className="text-[#8b949e] font-mono">Phosphor:</span>
               {(['vga', 'amber', 'green', 'white'] as PhosphorTheme[]).map((t) => (
                 <button
                   key={t}
@@ -118,7 +121,7 @@ export const CrtMonitor: React.FC<CrtMonitorProps> = ({
               ))}
             </div>
 
-            <div className="flex items-center space-x-3 ml-auto">
+            <div className="flex items-center space-x-4">
               <label className="flex items-center space-x-1 cursor-pointer">
                 <input
                   type="checkbox"
@@ -148,6 +151,61 @@ export const CrtMonitor: React.FC<CrtMonitorProps> = ({
                 />
                 <span className="text-[11px]">60Hz Flicker</span>
               </label>
+
+              {/* Degauss Action in CRT Controls Drawer */}
+              <div className="pl-3 border-l border-[#30363d]">
+                <button
+                  onClick={handleDegauss}
+                  disabled={isDegaussing}
+                  className={`px-3 py-1 rounded-lg bg-gradient-to-r from-amber-600/30 to-yellow-600/30 hover:from-amber-600/50 hover:to-yellow-600/50 border border-amber-500/60 text-amber-300 font-mono text-xs font-bold transition flex items-center space-x-1.5 shadow-sm cursor-pointer ${
+                    isDegaussing ? 'animate-pulse bg-amber-950 text-amber-200' : ''
+                  }`}
+                  title="Trigger magnetic degaussing coil"
+                >
+                  <Sparkles size={13} className={isDegaussing ? 'animate-spin' : ''} />
+                  <span>{isDegaussing ? 'Degaussing...' : 'Degauss Tube'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Retro Sound FX Test Strip */}
+            <div className="w-full pt-2.5 mt-1 border-t border-[#30363d]/60 flex flex-wrap items-center gap-2 text-[11px] font-mono">
+              <span className="text-[#8b949e]">Retro FX:</span>
+              <button
+                onClick={() => audioSynth.playHardDriveSpinUp()}
+                className="px-2 py-0.5 rounded bg-[#21262d] hover:bg-[#30363d] text-emerald-300 border border-[#30363d] transition flex items-center space-x-1 cursor-pointer"
+                title="Play 3,600 RPM MFM/IDE Hard Drive Spindle Spin-Up & Head Recalibrate"
+              >
+                <span>💾 Spin-Up</span>
+              </button>
+              <button
+                onClick={() => audioSynth.playFloppyDriveRead(6)}
+                className="px-2 py-0.5 rounded bg-[#21262d] hover:bg-[#30363d] text-blue-300 border border-[#30363d] transition flex items-center space-x-1 cursor-pointer"
+                title="Play 3.5-inch Floppy Drive Stepper and Sector Read"
+              >
+                <span>💽 Floppy Read</span>
+              </button>
+              <button
+                onClick={() => audioSynth.playPostBeep('success')}
+                className="px-2 py-0.5 rounded bg-[#21262d] hover:bg-[#30363d] text-teal-300 border border-[#30363d] transition flex items-center space-x-1 cursor-pointer"
+                title="Play IBM BIOS POST Success Beep (Single 880Hz short beep)"
+              >
+                <span>🔔 POST OK</span>
+              </button>
+              <button
+                onClick={() => audioSynth.playPostBeep('video_error')}
+                className="px-2 py-0.5 rounded bg-[#21262d] hover:bg-[#30363d] text-amber-300 border border-[#30363d] transition flex items-center space-x-1 cursor-pointer"
+                title="Play POST Video Adapter Failure (1 Long, 2 Short Beeps)"
+              >
+                <span>⚠️ Video Error</span>
+              </button>
+              <button
+                onClick={() => audioSynth.playPostBeep('ram_error')}
+                className="px-2 py-0.5 rounded bg-[#21262d] hover:bg-[#30363d] text-rose-300 border border-[#30363d] transition flex items-center space-x-1 cursor-pointer"
+                title="Play POST Base 64K RAM Parity Error (3 Short Beeps)"
+              >
+                <span>🚨 RAM Error</span>
+              </button>
             </div>
           </div>
         )}
@@ -179,6 +237,19 @@ export const CrtMonitor: React.FC<CrtMonitorProps> = ({
               VIDEO: CGA / EGA / VGA MODE 3h
             </span>
             <span className="hidden sm:inline">RESOLUTION: 720x400 @ 70Hz</span>
+
+            {/* Hardware Tactile Degauss Button */}
+            <button
+              onClick={handleDegauss}
+              disabled={isDegaussing}
+              className={`px-2.5 py-0.5 rounded bg-[#161b22] hover:bg-[#252a32] border border-[#3a424e] text-[#e3b341] hover:text-[#f2cc60] font-mono text-[10px] font-bold transition flex items-center space-x-1 cursor-pointer shadow-inner active:translate-y-0.5 ${
+                isDegaussing ? 'bg-amber-950/80 border-amber-500 text-amber-300 ring-1 ring-amber-500' : ''
+              }`}
+              title="Hardware Degaussing Coil (Triggers animate-degauss and audioSynth.playDegauss())"
+            >
+              <span>⚡</span>
+              <span>DEGAUSS</span>
+            </button>
           </div>
 
           <div className="flex items-center space-x-2 mt-2 sm:mt-0">

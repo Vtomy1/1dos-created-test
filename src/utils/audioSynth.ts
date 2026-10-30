@@ -128,29 +128,232 @@ class RetroAudioSynth {
    * Simulates the iconic "chrr-chrr-click" head movement!
    */
   public playFloppySeek(steps = 4): void {
+    this.playFloppyDriveRead(steps);
+  }
+
+  /**
+   * Comprehensive Floppy Drive Read Sound
+   * Simulates drive motor spin-up, head stepper track stepping, and sector read chatter
+   */
+  public playFloppyDriveRead(tracks = 6): void {
     if (this.isMuted) return;
     this.initContext();
     if (!this.ctx) return;
 
     try {
       const now = this.ctx.currentTime;
-      for (let i = 0; i < steps; i++) {
-        const stepTime = now + i * 0.045;
-        // High click
-        const clickOsc = this.ctx.createOscillator();
-        const clickGain = this.ctx.createGain();
-        clickOsc.type = 'sawtooth';
-        clickOsc.frequency.setValueAtTime(i % 2 === 0 ? 120 : 95, stepTime);
 
-        clickGain.gain.setValueAtTime(this.volume * 0.25, stepTime);
-        clickGain.gain.exponentialRampToValueAtTime(0.001, stepTime + 0.025);
+      // 1. Spindle motor spin hum (300 RPM = 5 Hz rotation, with 150 Hz harmonic)
+      const motorOsc = this.ctx.createOscillator();
+      const motorGain = this.ctx.createGain();
+      motorOsc.type = 'triangle';
+      motorOsc.frequency.setValueAtTime(145, now);
+      
+      const totalDur = (tracks * 0.055) + 0.15;
+      motorGain.gain.setValueAtTime(this.volume * 0.08, now);
+      motorGain.gain.linearRampToValueAtTime(this.volume * 0.12, now + 0.05);
+      motorGain.gain.setValueAtTime(this.volume * 0.1, now + totalDur - 0.05);
+      motorGain.gain.linearRampToValueAtTime(0, now + totalDur);
 
-        clickOsc.connect(clickGain);
-        clickGain.connect(this.ctx.destination);
+      motorOsc.connect(motorGain);
+      motorGain.connect(this.ctx.destination);
+      motorOsc.start(now);
+      motorOsc.stop(now + totalDur);
 
-        clickOsc.start(stepTime);
-        clickOsc.stop(stepTime + 0.03);
+      // 2. Stepper motor head bursts ("chrr-chk... chk-chk")
+      for (let i = 0; i < tracks; i++) {
+        const stepTime = now + 0.04 + (i * 0.055);
+        const stepOsc = this.ctx.createOscillator();
+        const stepGain = this.ctx.createGain();
+
+        // Mechanical stepper impulse
+        stepOsc.type = 'sawtooth';
+        // Alternating pitch between inner/outer tracks
+        stepOsc.frequency.setValueAtTime(i % 2 === 0 ? 135 : 98, stepTime);
+        stepOsc.frequency.exponentialRampToValueAtTime(45, stepTime + 0.028);
+
+        stepGain.gain.setValueAtTime(this.volume * 0.35, stepTime);
+        stepGain.gain.exponentialRampToValueAtTime(0.001, stepTime + 0.025);
+
+        stepOsc.connect(stepGain);
+        stepGain.connect(this.ctx.destination);
+
+        stepOsc.start(stepTime);
+        stepOsc.stop(stepTime + 0.03);
+
+        // Sub-micro chatter: head read verify tick
+        if (i % 2 === 1) {
+          const tickOsc = this.ctx.createOscillator();
+          const tickGain = this.ctx.createGain();
+          tickOsc.type = 'square';
+          tickOsc.frequency.setValueAtTime(850, stepTime + 0.012);
+
+          tickGain.gain.setValueAtTime(this.volume * 0.1, stepTime + 0.012);
+          tickGain.gain.exponentialRampToValueAtTime(0.001, stepTime + 0.02);
+
+          tickOsc.connect(tickGain);
+          tickGain.connect(this.ctx.destination);
+
+          tickOsc.start(stepTime + 0.012);
+          tickOsc.stop(stepTime + 0.022);
+        }
       }
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
+   * Vintage IDE / MFM Hard Drive Spin-Up & Head Recalibrate
+   * Simulates spindle acceleration whine (0 -> 3600 RPM) followed by
+   * solenoid head unpark and track 00 seek recalibration ("thwack-click")
+   */
+  public playHardDriveSpinUp(): void {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const spinDuration = 1.6;
+
+      // 1. Spindle motor spin-up whine (rising frequency from 120Hz to 2400Hz)
+      const spindleOsc = this.ctx.createOscillator();
+      const spindleGain = this.ctx.createGain();
+
+      spindleOsc.type = 'sawtooth';
+      spindleOsc.frequency.setValueAtTime(90, now);
+      // Exponential curve matching physical inertia acceleration
+      spindleOsc.frequency.exponentialRampToValueAtTime(2200, now + spinDuration);
+
+      spindleGain.gain.setValueAtTime(0.001, now);
+      spindleGain.gain.linearRampToValueAtTime(this.volume * 0.22, now + 0.4);
+      spindleGain.gain.setValueAtTime(this.volume * 0.18, now + spinDuration);
+      spindleGain.gain.exponentialRampToValueAtTime(0.001, now + spinDuration + 0.6);
+
+      // Lowpass filter to muffle raw sawtooth into metal casing whine
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(300, now);
+      filter.frequency.exponentialRampToValueAtTime(3200, now + spinDuration);
+
+      spindleOsc.connect(filter);
+      filter.connect(spindleGain);
+      spindleGain.connect(this.ctx.destination);
+
+      spindleOsc.start(now);
+      spindleOsc.stop(now + spinDuration + 0.7);
+
+      // 2. Actuator Head Unpark & Recalibrate Clack ("clack-thump... tick")
+      const unparkTime = now + spinDuration + 0.05;
+      
+      // Hit 1: Heads unpark from landing zone
+      const clack1Osc = this.ctx.createOscillator();
+      const clack1Gain = this.ctx.createGain();
+      clack1Osc.type = 'square';
+      clack1Osc.frequency.setValueAtTime(160, unparkTime);
+      clack1Osc.frequency.exponentialRampToValueAtTime(40, unparkTime + 0.04);
+      clack1Gain.gain.setValueAtTime(this.volume * 0.45, unparkTime);
+      clack1Gain.gain.exponentialRampToValueAtTime(0.001, unparkTime + 0.045);
+      clack1Osc.connect(clack1Gain);
+      clack1Gain.connect(this.ctx.destination);
+      clack1Osc.start(unparkTime);
+      clack1Osc.stop(unparkTime + 0.05);
+
+      // Hit 2: Track 00 stop bump (80ms later)
+      const clack2Time = unparkTime + 0.085;
+      const clack2Osc = this.ctx.createOscillator();
+      const clack2Gain = this.ctx.createGain();
+      clack2Osc.type = 'triangle';
+      clack2Osc.frequency.setValueAtTime(220, clack2Time);
+      clack2Osc.frequency.exponentialRampToValueAtTime(50, clack2Time + 0.035);
+      clack2Gain.gain.setValueAtTime(this.volume * 0.35, clack2Time);
+      clack2Gain.gain.exponentialRampToValueAtTime(0.001, clack2Time + 0.04);
+      clack2Osc.connect(clack2Gain);
+      clack2Gain.connect(this.ctx.destination);
+      clack2Osc.start(clack2Time);
+      clack2Osc.stop(clack2Time + 0.045);
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
+   * IBM PC / AMI / Award BIOS POST Diagnostic Beep Error Codes
+   * Authentic square wave hardware tone sequences.
+   */
+  public playPostBeep(code: 'success' | 'ram_error' | 'video_error' | 'keyboard_error' | 'gate_a20' | 'continuous' = 'success'): void {
+    if (this.isMuted) return;
+
+    switch (code) {
+      case 'success':
+        // Standard single short beep: 880Hz, 120ms (All tests passed, base 64K OK)
+        this.beep(880, 130);
+        break;
+
+      case 'video_error':
+        // 1 long, 2 short beeps (Video adapter failure / Display memory)
+        this.beep(800, 380);
+        setTimeout(() => this.beep(800, 110), 480);
+        setTimeout(() => this.beep(800, 110), 660);
+        break;
+
+      case 'ram_error':
+        // 3 short beeps (First 64KB RAM parity error)
+        this.beep(850, 100);
+        setTimeout(() => this.beep(850, 100), 180);
+        setTimeout(() => this.beep(850, 100), 360);
+        break;
+
+      case 'keyboard_error':
+        // 1 long, 3 short beeps (8042 Keyboard controller error)
+        this.beep(800, 380);
+        setTimeout(() => this.beep(800, 110), 480);
+        setTimeout(() => this.beep(800, 110), 650);
+        setTimeout(() => this.beep(800, 110), 820);
+        break;
+
+      case 'gate_a20':
+        // 1 long, 1 short beep (A20 Gate / High Memory HIMEM failure)
+        this.beep(800, 360);
+        setTimeout(() => this.beep(800, 120), 460);
+        break;
+
+      case 'continuous':
+        // Continuous alert beeps (Power supply / Motherboard failure)
+        for (let i = 0; i < 4; i++) {
+          setTimeout(() => this.beep(920, 80), i * 140);
+        }
+        break;
+    }
+  }
+
+  /**
+   * IBM Model M / Buckling Spring Keyboard Click
+   * Plays a crisp mechanical transient click upon keystroke in terminal
+   */
+  public playKeyClick(): void {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(1800, now);
+      osc.frequency.exponentialRampToValueAtTime(320, now + 0.015);
+
+      gain.gain.setValueAtTime(this.volume * 0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.018);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.02);
     } catch {
       // ignore
     }

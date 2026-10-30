@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { DosProgramResult, PhosphorTheme } from '../types/dos';
 import { audioSynth } from '../utils/audioSynth';
 import { parseAnsiText } from '../utils/ansiParser';
-import { Play, RotateCcw, Terminal, Code, HelpCircle } from 'lucide-react';
+import { downloadTextFile } from '../utils/fat12Floppy';
+import { Play, RotateCcw, Terminal, Code, HelpCircle, Save } from 'lucide-react';
 
 interface DosTerminalProps {
   program: DosProgramResult | null;
@@ -40,7 +41,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
   // When program changes, show notification in DOS prompt
   useEffect(() => {
     if (program) {
-      audioSynth.playFloppySeek(3);
+      audioSynth.playFloppyDriveRead(4);
       setHistory((prev) => [
         ...prev,
         {
@@ -62,16 +63,80 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
   }, [history, isRunningProgram]);
 
   const runBootSequence = () => {
-    audioSynth.playFloppySeek(5);
+    // 1. Spindle motor spin up
+    audioSynth.playHardDriveSpinUp();
+
+    // 2. Head recalibration seek
+    setTimeout(() => {
+      audioSynth.playFloppyDriveRead(3);
+    }, 1200);
+
+    // 3. POST memory check passed beep
+    setTimeout(() => {
+      audioSynth.playPostBeep('success');
+    }, 1800);
+
     setHistory([
-      { id: '1', type: 'output', text: 'Starting MS-DOS...' },
-      { id: '2', type: 'output', text: 'HIMEM: Testing extended memory... done.' },
-      { id: '3', type: 'output', text: 'EMM386 4.49: Expanded Memory Manager installed.' },
-      { id: '4', type: 'output', text: 'MS-DOS Version 6.22 (C)Copyright Microsoft Corp 1981-1994.' },
-      { id: '5', type: 'output', text: 'C:\\> SET SOUND=C:\\SB16' },
-      { id: '6', type: 'output', text: 'C:\\> SET BLASTER=A220 I5 D1 H5 P330 T6' },
-      { id: '7', type: 'output', text: 'C:\\> PROMPT $P$G' },
-      { id: '8', type: 'output', text: 'Ready. Type HELP for commands or RUN to launch loaded program.' },
+      { id: '1', type: 'output', text: 'IBM BIOS (C) Copyright IBM Corp 1981-1994' },
+      { id: '2', type: 'output', text: '640KB Base Memory OK  |  7168KB Extended Memory OK' },
+      { id: '3', type: 'output', text: 'IDE Primary Master: CONNER CP-30104H (120MB) Ready.' },
+      { id: '4', type: 'output', text: 'Starting MS-DOS...' },
+      { id: '5', type: 'output', text: 'HIMEM: Testing extended memory... done.' },
+      { id: '6', type: 'output', text: 'EMM386 4.49: Expanded Memory Manager installed.' },
+      { id: '7', type: 'output', text: 'MS-DOS Version 6.22 (C)Copyright Microsoft Corp 1981-1994.' },
+      { id: '8', type: 'output', text: 'C:\\> SET SOUND=C:\\SB16' },
+      { id: '9', type: 'output', text: 'C:\\> SET BLASTER=A220 I5 D1 H5 P330 T6' },
+      { id: '10', type: 'output', text: 'C:\\> PROMPT $P$G' },
+      { id: '11', type: 'output', text: 'System ready. Type HELP for commands or try: SPINUP, POST, FLOPPY, RUN.' },
+    ]);
+  };
+
+  const handleSaveSession = (customFilename?: string) => {
+    // Trigger hard drive spin-up sound effect as requested!
+    audioSynth.playHardDriveSpinUp();
+
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+    const filename = customFilename 
+      ? (customFilename.toUpperCase().endsWith('.TXT') ? customFilename.toUpperCase() : `${customFilename.toUpperCase()}.TXT`) 
+      : `DOS_SESSION_${timestamp}.TXT`;
+
+    const lines: string[] = [
+      '================================================================================',
+      '                 DOSCraft MS-DOS 6.22 TERMINAL SESSION TRANSCRIPT              ',
+      ` Date: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}                  `,
+      ' Environment: Real-Mode 16-Bit x86 Emulation (INT 21h / INT 10h)               ',
+      '================================================================================',
+      '',
+    ];
+
+    for (const item of history) {
+      if (item.type === 'input' && item.text) {
+        lines.push(item.text);
+      } else if (item.type === 'output' && item.text) {
+        lines.push(item.text);
+      } else if (item.type === 'ansi' && item.ansiSpans) {
+        lines.push(item.ansiSpans.map((s) => s.text).join(''));
+      } else if (item.type === 'canvas') {
+        lines.push('[VGA Mode 13h Framebuffer Graphic Output]');
+      }
+    }
+
+    lines.push('');
+    lines.push('================================================================================');
+    lines.push('                         END OF MS-DOS SESSION LOG                              ');
+    lines.push('================================================================================');
+
+    const fileContent = lines.join('\r\n');
+    downloadTextFile(filename, fileContent);
+
+    setHistory((prev) => [
+      ...prev,
+      {
+        id: Math.random().toString(),
+        type: 'output',
+        text: `Flushing I/O write buffers to C:\\${filename}...\r\nIDE Hard Drive spindle synchronized (3,600 RPM).\r\nSession log (${fileContent.length} bytes) saved to disk successfully.`,
+      },
     ]);
   };
 
@@ -110,7 +175,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
         break;
 
       case 'DIR':
-        audioSynth.playFloppySeek(4);
+        audioSynth.playFloppyDriveRead(7);
         const files = [
           { name: 'COMMAND .COM', size: '54,645', date: '05-31-94  6:22a' },
           { name: 'CONFIG  .SYS', size: '   428', date: '10-29-88  3:14p' },
@@ -152,8 +217,83 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
         newEntries.push({ id: Math.random().toString(), type: 'output', text: dirOutput });
         break;
 
+      case 'SPINUP':
+        audioSynth.playHardDriveSpinUp();
+        newEntries.push({
+          id: Math.random().toString(),
+          type: 'output',
+          text: `CONNER CP-30104H (120MB MFM/IDE Hard Disk)\r\n  Spindle motor accelerating: 0 -> 3,600 RPM...\r\n  PLL Spindle Phase Lock: OK (3,600 RPM synchronized)\r\n  Actuator solenoid heads unparked from landing zone.\r\n  Track 00 sensor calibration: SUCCESS. Drive C: online.`,
+        });
+        break;
+
+      case 'POST':
+        const postArg = (arg || 'SUCCESS').toUpperCase();
+        if (postArg === 'VIDEO') {
+          audioSynth.playPostBeep('video_error');
+          newEntries.push({
+            id: Math.random().toString(),
+            type: 'output',
+            text: `[POST BEEP DIAGNOSTIC] 1 Long, 2 Short Beeps\r\nERROR 0102: Display Adapter Initialization Failure (MDA/CGA/EGA/VGA)\r\nChecking video ROM BIOS checksum... FAIL.`,
+          });
+        } else if (postArg === 'RAM') {
+          audioSynth.playPostBeep('ram_error');
+          newEntries.push({
+            id: Math.random().toString(),
+            type: 'output',
+            text: `[POST BEEP DIAGNOSTIC] 3 Short Beeps\r\nPARITY CHECK 1: Base 64K Conventional Memory Failure at 0000:0400h\r\nAddress line A0-A15 short detected. System halted.`,
+          });
+        } else if (postArg === 'KEYBOARD') {
+          audioSynth.playPostBeep('keyboard_error');
+          newEntries.push({
+            id: Math.random().toString(),
+            type: 'output',
+            text: `[POST BEEP DIAGNOSTIC] 1 Long, 3 Short Beeps\r\nERROR 0301: 8042 Keyboard Controller Clock Line Stuck Low\r\nKeyboard not responding. Press F1 to resume.`,
+          });
+        } else if (postArg === 'A20') {
+          audioSynth.playPostBeep('gate_a20');
+          newEntries.push({
+            id: Math.random().toString(),
+            type: 'output',
+            text: `[POST BEEP DIAGNOSTIC] 1 Long, 1 Short Beep\r\nERROR 0211: Gate A20 Line Failure\r\nHIMEM.SYS unable to control high memory area.`,
+          });
+        } else if (postArg === 'CONTINUOUS' || postArg === 'POWER') {
+          audioSynth.playPostBeep('continuous');
+          newEntries.push({
+            id: Math.random().toString(),
+            type: 'output',
+            text: `[POST BEEP DIAGNOSTIC] Repeating Alert Beeps\r\nWARNING: Power Supply 12V/5V Rail Voltage Underrun detected.`,
+          });
+        } else {
+          audioSynth.playPostBeep('success');
+          newEntries.push({
+            id: Math.random().toString(),
+            type: 'output',
+            text: `[POST BEEP DIAGNOSTIC] 1 Short Beep (Standard 880Hz)\r\nPOST STATUS 00: All Diagnostics Passed.\r\nBase 640K RAM: OK | Video Subsystem: OK | Timer Channel 0: OK`,
+          });
+        }
+        break;
+
+      case 'FLOPPY':
+      case 'SEEK':
+        audioSynth.playFloppyDriveRead(8);
+        newEntries.push({
+          id: Math.random().toString(),
+          type: 'output',
+          text: `Drive A: (3.5" 1.44MB HD Floppy Drive)\r\n  Motor active: 300 RPM...\r\n  Seeking tracks 00..07 across FAT12 root table...\r\n  Read 8 sectors: CRC 16-bit match OK. Head parked.`,
+        });
+        break;
+
+      case 'CHKDSK':
+        audioSynth.playFloppyDriveRead(10);
+        newEntries.push({
+          id: Math.random().toString(),
+          type: 'output',
+          text: `Volume DOSCRAFT created 10-29-1988 12:00p\r\nVolume Serial Number is 1988-1029\r\n\r\n 125,952,000 bytes total disk space\r\n     65,536 bytes in 2 hidden files\r\n    448,875 bytes in 12 user files\r\n125,437,589 bytes available on disk\r\n\r\n      2,048 bytes in each allocation unit\r\n     61,500 total allocation units on disk\r\n     61,248 available allocation units on disk\r\n\r\n    655,360 total bytes conventional memory\r\n    636,928 bytes free`,
+        });
+        break;
+
       case 'MEM':
-        audioSynth.playFloppySeek(2);
+        audioSynth.playFloppyDriveRead(3);
         const memReport = `Memory Type        Total  =   Used  +   Free\r\n----------------  ------     ------    ------\r\nConventional        640K        18K      622K\r\nUpper (UMB)         155K        48K      107K\r\nReserved            384K       384K        0K\r\nExtended (XMS)    7,168K     1,024K    6,144K\r\n----------------  ------     ------    ------\r\nTotal memory      8,347K     1,474K    6,873K\r\n\r\nTotal under 1 MB    795K        66K      729K\r\n\r\nLargest executable program size       621K (636,256 bytes)\r\nLargest free upper memory block       104K (106,496 bytes)\r\nMS-DOS is resident in the high memory area.`;
         newEntries.push({ id: Math.random().toString(), type: 'output', text: memReport });
         break;
@@ -162,7 +302,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
         if (!arg) {
           newEntries.push({ id: Math.random().toString(), type: 'output', text: 'Required parameter missing.' });
         } else {
-          audioSynth.playFloppySeek(3);
+          audioSynth.playFloppyDriveRead(5);
           const upperArg = arg.toUpperCase();
           if (program && (upperArg === program.filename.toUpperCase() || upperArg === program.filename.split('.')[0])) {
             if (program.primaryType === 'ANS') {
@@ -201,11 +341,17 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
         audioSynth.playMML(mml);
         break;
 
+      case 'SAVE':
+      case 'LOG':
+      case 'DUMP':
+        handleSaveSession(arg || undefined);
+        return;
+
       case 'HELP':
         newEntries.push({
           id: Math.random().toString(),
           type: 'output',
-          text: `AVAILABLE MS-DOS COMMANDS:\r\n  RUN [file]   - Execute current compiled DOS program\r\n  DIR [/W]     - Display files on drive C:\r\n  TYPE [file]  - Display file contents / ANSI art\r\n  EDIT [file]  - Open vintage MS-DOS blue screen editor\r\n  MEM          - Display conventional (640K), UMB, XMS memory\r\n  VER          - Display MS-DOS version\r\n  PLAY [MML]   - Play Music Macro Language through PC speaker\r\n  BEEP         - Test 1-bit PC Speaker\r\n  DEBUG        - Enter 16-bit x86 debugger / disassembler\r\n  REBOOT       - Perform IBM BIOS cold boot sequence\r\n  CLS          - Clear screen`,
+          text: `AVAILABLE MS-DOS COMMANDS:\r\n  SAVE [file.txt]  - Save terminal output to .TXT (triggers hard drive spin-up)\r\n  RUN [file]       - Execute current compiled DOS program\r\n  DIR [/W]         - Display files with floppy seek audio\r\n  TYPE [file]      - Display file contents / ANSI art\r\n  SPINUP           - Trigger MFM/IDE Hard Drive spindle & head unpark\r\n  POST [CODE]      - Test BIOS POST beeps (SUCCESS, VIDEO, RAM, KEYBOARD, A20)\r\n  FLOPPY           - Trigger 3.5" Floppy Drive read sound & seek\r\n  CHKDSK           - Perform disk integrity check\r\n  EDIT [file]      - Open vintage MS-DOS blue screen editor\r\n  MEM              - Display conventional (640K), UMB, XMS memory\r\n  VER              - Display MS-DOS version\r\n  PLAY [MML]       - Play Music Macro Language through PC speaker\r\n  BEEP             - Test 1-bit PC Speaker\r\n  DEBUG            - Enter 16-bit x86 debugger / disassembler\r\n  REBOOT           - Cold boot: Drive spinup + POST beep\r\n  CLS              - Clear screen`,
         });
         break;
 
@@ -221,6 +367,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
         break;
 
       case 'EDIT':
+        audioSynth.playFloppyDriveRead(3);
         setIsEditorOpen(true);
         setEditorFilename(arg || (program ? program.filename : 'UNTITLED.TXT'));
         setEditorContent(program ? program.primaryCode : '@ECHO OFF\r\nECHO New DOS script\r\n');
@@ -237,11 +384,11 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
         return;
 
       default:
-        audioSynth.beep(200, 100);
+        audioSynth.playPostBeep('ram_error');
         newEntries.push({
           id: Math.random().toString(),
           type: 'output',
-          text: `Bad command or file name: "${trimmed}". Type HELP for available commands.`,
+          text: `Bad command or file name: "${trimmed}". Type HELP for available commands (or try SPINUP, POST, FLOPPY).`,
         });
         break;
     }
@@ -259,7 +406,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
       return;
     }
 
-    audioSynth.playFloppySeek(4);
+    audioSynth.playFloppyDriveRead(6);
     setIsRunningProgram(true);
 
     const runHeader: CommandHistory = {
@@ -445,6 +592,10 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!['Control', 'Shift', 'Alt', 'Meta', 'CapsLock', 'Tab'].includes(e.key)) {
+      audioSynth.playKeyClick();
+    }
+
     if (e.key === 'Enter') {
       handleCommand(inputVal);
       setInputVal('');
@@ -499,6 +650,23 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
           </div>
         </div>
       )}
+
+      {/* Terminal Session Header with Save Action */}
+      <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#30363d]/50 text-xs font-mono text-[#8b949e]">
+        <div className="flex items-center space-x-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[#c9d1d9] font-bold">MS-DOS SESSION BUFFER</span>
+          <span className="hidden sm:inline">({history.length} events)</span>
+        </div>
+        <button
+          onClick={() => handleSaveSession()}
+          className="px-2.5 py-1 rounded bg-[#161b22] hover:bg-[#282e37] border border-[#3a424e] text-emerald-400 hover:text-emerald-300 font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-sm active:translate-y-0.5"
+          title="Save terminal session as .TXT file (triggers hard drive spin-up sound)"
+        >
+          <Save size={13} />
+          <span>Save Session (.TXT)</span>
+        </button>
+      </div>
 
       {/* Terminal History */}
       <div className="space-y-1">
