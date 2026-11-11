@@ -351,6 +351,14 @@ export default function App() {
                 theme={phosphorTheme}
                 onThemeChange={setPhosphorTheme}
                 titleBar={`MS-DOS 6.22 VIRTUAL MACHINE - [${currentProgram.filename}]`}
+                onDegauss={() =>
+                  handleLogEvent(
+                    'HARDWARE',
+                    'CRT MONITOR DEGAUSS',
+                    'High-voltage 60Hz magnetic degauss coil energized. Screen-shake raster vibration and high-pitched electrostatic static discharged.',
+                    'OK'
+                  )
+                }
               >
                 <DosTerminal
                   program={currentProgram}

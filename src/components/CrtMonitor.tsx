@@ -8,6 +8,7 @@ interface CrtMonitorProps {
   theme: PhosphorTheme;
   onThemeChange: (theme: PhosphorTheme) => void;
   titleBar?: string;
+  onDegauss?: () => void;
 }
 
 export const CrtMonitor: React.FC<CrtMonitorProps> = ({
@@ -15,6 +16,7 @@ export const CrtMonitor: React.FC<CrtMonitorProps> = ({
   theme,
   onThemeChange,
   titleBar = 'IBM 5153 COLOR DISPLAY / MULTISYNC II',
+  onDegauss,
 }) => {
   const [scanlines, setScanlines] = useState(true);
   const [curvature, setCurvature] = useState(true);
@@ -24,12 +26,16 @@ export const CrtMonitor: React.FC<CrtMonitorProps> = ({
   const [showSettings, setShowSettings] = useState(false);
 
   const handleDegauss = () => {
+    if (isDegaussing) return;
     setIsDegaussing(true);
+    // Triggers 60Hz magnetic coil rumble & high-pitched static sound effect
     audioSynth.playDegauss();
+    onDegauss?.();
     setTimeout(() => {
       setIsDegaussing(false);
     }, 850);
   };
+
 
   const toggleMute = () => {
     const next = !isMuted;
@@ -69,14 +75,17 @@ export const CrtMonitor: React.FC<CrtMonitorProps> = ({
             <button
               onClick={handleDegauss}
               disabled={isDegaussing}
-              className={`px-3 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#2e343d] border border-[#3b434d] text-[#e3b341] hover:text-[#f2cc60] transition flex items-center space-x-1.5 shadow-sm font-mono text-xs cursor-pointer ${
-                isDegaussing ? 'opacity-75 scale-95 ring-2 ring-amber-500/60 bg-amber-950/50 text-amber-300' : ''
+              className={`px-3 py-1.5 rounded-lg border font-mono text-xs font-bold transition-all flex items-center space-x-1.5 shadow-sm cursor-pointer select-none active:scale-95 ${
+                isDegaussing
+                  ? 'bg-amber-400 text-black border-amber-300 ring-2 ring-amber-400 animate-pulse'
+                  : 'bg-[#1b2028] hover:bg-[#282f3a] border-amber-500/50 text-amber-300 hover:text-amber-200 hover:border-amber-400'
               }`}
-              title="Degauss CRT Monitor: Triggers 'animate-degauss' screen shake and plays static-noise magnetic correction sound effect"
+              title="Degauss CRT Monitor: Triggers temporary screen-shake animation and high-pitched static sound effect"
             >
-              <Zap size={14} className={isDegaussing ? 'animate-bounce text-amber-400' : 'text-amber-400'} />
-              <span className="font-bold">{isDegaussing ? 'Degaussing...' : 'Degauss'}</span>
+              <Zap size={14} className={isDegaussing ? 'animate-bounce text-black' : 'text-amber-400'} />
+              <span>{isDegaussing ? 'Degaussing...' : 'Degauss'}</span>
             </button>
+
 
             <button
               onClick={() => setShowSettings(!showSettings)}
@@ -247,14 +256,15 @@ export const CrtMonitor: React.FC<CrtMonitorProps> = ({
             <button
               onClick={handleDegauss}
               disabled={isDegaussing}
-              className={`px-2.5 py-0.5 rounded bg-[#161b22] hover:bg-[#252a32] border border-[#3a424e] text-[#e3b341] hover:text-[#f2cc60] font-mono text-[10px] font-bold transition flex items-center space-x-1 cursor-pointer shadow-inner active:translate-y-0.5 ${
-                isDegaussing ? 'bg-amber-950/80 border-amber-500 text-amber-300 ring-1 ring-amber-500' : ''
+              className={`px-3 py-1 rounded bg-[#161b22] hover:bg-[#252a32] border border-[#3a424e] text-amber-400 hover:text-amber-300 font-mono text-[11px] font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-inner active:translate-y-0.5 ${
+                isDegaussing ? 'bg-amber-950 border-amber-500 text-amber-300 ring-2 ring-amber-400 animate-pulse' : ''
               }`}
-              title="Hardware Degaussing Coil (Triggers animate-degauss and audioSynth.playDegauss())"
+              title="Degauss CRT Monitor: Triggers temporary screen-shake animation and high-pitched static sound effect"
             >
-              <span>⚡</span>
-              <span>DEGAUSS</span>
+              <Zap size={12} className={isDegaussing ? 'animate-spin text-amber-400' : 'text-amber-400'} />
+              <span>{isDegaussing ? 'DEGAUSSING...' : 'DEGAUSS'}</span>
             </button>
+
           </div>
 
           <div className="flex items-center space-x-2 mt-2 sm:mt-0">

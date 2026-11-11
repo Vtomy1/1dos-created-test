@@ -448,11 +448,88 @@ class RetroAudioSynth {
   }
 
   /**
-   * CRT Degauss Coil discharge sound with static noise
+   * High-Pitched Static Sound Effect
+   * Simulates the piercing electrostatic discharge, flyback transformer whine,
+   * and high-frequency shadow mask static sizzle of a CRT monitor degaussing.
+   */
+  public playHighPitchedStatic(durationMs = 850): void {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const durSec = durationMs / 1000;
+      const sampleRate = this.ctx.sampleRate;
+      const bufferSize = Math.floor(sampleRate * durSec);
+      const buffer = this.ctx.createBuffer(1, bufferSize, sampleRate);
+      const data = buffer.getChannelData(0);
+
+      // Generate sharp high-frequency white noise with electrostatic crackle pulses
+      for (let i = 0; i < bufferSize; i++) {
+        // High frequency white noise
+        let sample = (Math.random() * 2 - 1) * 0.45;
+        // Intermittent electrostatic micro-sparks/crackles
+        if (Math.random() < 0.02) {
+          sample += (Math.random() * 2 - 1) * 0.85;
+        }
+        data[i] = sample;
+      }
+
+      const noiseSource = this.ctx.createBufferSource();
+      noiseSource.buffer = buffer;
+
+      // Highpass filter for piercing high-frequency static hiss (5.5kHz cutoff)
+      const highpass = this.ctx.createBiquadFilter();
+      highpass.type = 'highpass';
+      highpass.frequency.setValueAtTime(5800, now);
+      highpass.frequency.exponentialRampToValueAtTime(3600, now + durSec);
+
+      // Peaking filter focused on 7.8kHz for high electrostatic presence
+      const presenceFilter = this.ctx.createBiquadFilter();
+      presenceFilter.type = 'peaking';
+      presenceFilter.frequency.setValueAtTime(7800, now);
+      presenceFilter.gain.setValueAtTime(9, now);
+      presenceFilter.Q.setValueAtTime(2.2, now);
+
+      const staticGain = this.ctx.createGain();
+      staticGain.gain.setValueAtTime(this.volume * 0.48, now);
+      staticGain.gain.exponentialRampToValueAtTime(0.001, now + durSec);
+
+      noiseSource.connect(highpass);
+      highpass.connect(presenceFilter);
+      presenceFilter.connect(staticGain);
+      staticGain.connect(this.ctx.destination);
+
+      noiseSource.start(now);
+      noiseSource.stop(now + durSec);
+
+      // Piercing flyback line whistle (starts at 9.4kHz, sweeping down to 4.2kHz)
+      const whistleOsc = this.ctx.createOscillator();
+      const whistleGain = this.ctx.createGain();
+      whistleOsc.type = 'sine';
+      whistleOsc.frequency.setValueAtTime(9400, now);
+      whistleOsc.frequency.exponentialRampToValueAtTime(4200, now + durSec * 0.75);
+
+      whistleGain.gain.setValueAtTime(this.volume * 0.25, now);
+      whistleGain.gain.exponentialRampToValueAtTime(0.001, now + durSec * 0.8);
+
+      whistleOsc.connect(whistleGain);
+      whistleGain.connect(this.ctx.destination);
+
+      whistleOsc.start(now);
+      whistleOsc.stop(now + durSec);
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
+   * CRT Degauss Coil discharge sound with high-pitched static sound effect
    * Simulates the complete magnetic correction process of vintage monitors:
    * 1. Solenoid/relay mechanical thump
    * 2. Heavy 60Hz alternating electromagnetic coil rumble & decay
-   * 3. High-voltage electrostatic static-noise crackle as shadow mask demagnetizes
+   * 3. High-pitched electrostatic static sizzle & flyback whistle as shadow mask demagnetizes
    */
   public playDegauss(): void {
     if (this.isMuted) return;
@@ -491,8 +568,8 @@ class RetroAudioSynth {
       osc.start(now);
       osc.stop(now + 0.85);
 
-      // 3. Static noise burst simulating electrostatic magnetic discharge
-      this.playStaticNoise(800);
+      // 3. High-pitched static sound effect (electrostatic discharge + flyback transformer whine)
+      this.playHighPitchedStatic(850);
     } catch {
       // ignore
     }
