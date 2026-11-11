@@ -61,3 +61,25 @@ export interface DosProgramResult {
 }
 
 export type PhosphorTheme = 'amber' | 'green' | 'white' | 'vga';
+
+export type SystemEventType = 
+  | 'COMMAND'
+  | 'HARDWARE'
+  | 'MEMORY'
+  | 'PATCH'
+  | 'DISK'
+  | 'AUDIO'
+  | 'VIDEO'
+  | 'BOOT';
+
+export interface SystemEvent {
+  id: string;
+  timestamp: string; // ISO / 24h clock string
+  cycle: number;    // Emulated CPU cycle count
+  type: SystemEventType;
+  title: string;
+  detail: string;
+  badge?: string;
+  status: 'OK' | 'WARN' | 'INFO' | 'ERR';
+  metadata?: Record<string, string | number>;
+}

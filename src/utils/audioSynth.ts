@@ -360,6 +360,40 @@ class RetroAudioSynth {
   }
 
   /**
+   * Vintage Teletype / Ticker Tape Mechanical Paper Feed Ratchet
+   * Simulates dot-matrix / ticker printer tractor feed sprocket click
+   */
+  public playPaperFeed(pulses = 3): void {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      for (let i = 0; i < pulses; i++) {
+        const t = now + i * 0.035;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(420, t);
+        osc.frequency.exponentialRampToValueAtTime(110, t + 0.02);
+
+        gain.gain.setValueAtTime(this.volume * 0.18, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(t);
+        osc.stop(t + 0.03);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
    * High-Voltage Electrostatic Static Noise / White Noise Crackle
    * Simulates the electrostatic discharge and shadow mask static crackle of CRT monitors
    */

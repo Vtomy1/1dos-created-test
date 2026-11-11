@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { DosProgramResult, PhosphorTheme } from '../types/dos';
+import { DosProgramResult, PhosphorTheme, SystemEventType } from '../types/dos';
 import { audioSynth } from '../utils/audioSynth';
 import { parseAnsiText } from '../utils/ansiParser';
 import { downloadTextFile } from '../utils/fat12Floppy';
@@ -8,6 +8,13 @@ import { Play, RotateCcw, Terminal, Code, HelpCircle, Save } from 'lucide-react'
 interface DosTerminalProps {
   program: DosProgramResult | null;
   theme: PhosphorTheme;
+  onLogEvent?: (
+    type: SystemEventType, 
+    title: string, 
+    detail: string, 
+    status?: 'OK' | 'WARN' | 'INFO' | 'ERR', 
+    metadata?: Record<string, string | number>
+  ) => void;
 }
 
 interface CommandHistory {
@@ -17,7 +24,7 @@ interface CommandHistory {
   ansiSpans?: ReturnType<typeof parseAnsiText>;
 }
 
-export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
+export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme, onLogEvent }) => {
   const [history, setHistory] = useState<CommandHistory[]>([]);
   const [inputVal, setInputVal] = useState('');
   const [commandHistoryList, setCommandHistoryList] = useState<string[]>([]);
@@ -38,10 +45,17 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
     runBootSequence();
   }, []);
 
-  // When program changes, show notification in DOS prompt
+  // When program changes, show notification in DOS prompt and log hardware event
   useEffect(() => {
     if (program) {
       audioSynth.playFloppyDriveRead(4);
+      onLogEvent?.(
+        'DISK',
+        'VIRTUAL FLOPPY INSERTED',
+        `Drive A: Floppy diskette mounted [${program.filename}] (${program.primaryCode.length} bytes)`,
+        'OK',
+        { filename: program.filename, format: program.primaryType, minDos: program.memoryRequirements.minDosVersion }
+      );
       setHistory((prev) => [
         ...prev,
         {
@@ -65,6 +79,14 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
   const runBootSequence = () => {
     // 1. Spindle motor spin up
     audioSynth.playHardDriveSpinUp();
+
+    onLogEvent?.(
+      'BOOT',
+      'IBM PC-DOS / MS-DOS COLD BOOT',
+      'BIOS POST checks passed. Base 640KB RAM & 7168KB XMS verified. Kernel resident in HMA.',
+      'OK',
+      { conventional: '640KB', upperUMB: '155KB', xms: '7168KB' }
+    );
 
     // 2. Head recalibration seek
     setTimeout(() => {
@@ -130,6 +152,14 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
     const fileContent = lines.join('\r\n');
     downloadTextFile(filename, fileContent);
 
+    onLogEvent?.(
+      'DISK',
+      'TERMINAL SESSION DUMPED',
+      `Saved terminal session log to ${filename} (${fileContent.length} bytes)`,
+      'OK',
+      { file: filename, bytes: fileContent.length }
+    );
+
     setHistory((prev) => [
       ...prev,
       {
@@ -176,6 +206,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
 
       case 'DIR':
         audioSynth.playFloppyDriveRead(7);
+        onLogEvent?.('DISK', 'DIRECTORY LISTING (DIR)', 'Read directory allocation table for Drive C:\\ (448,875 bytes in files)', 'OK');
         const files = [
           { name: 'COMMAND .COM', size: '54,645', date: '05-31-94  6:22a' },
           { name: 'CONFIG  .SYS', size: '   428', date: '10-29-88  3:14p' },
@@ -219,6 +250,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
 
       case 'SPINUP':
         audioSynth.playHardDriveSpinUp();
+        onLogEvent?.('HARDWARE', 'HARD DRIVE SPINDLE SPIN-UP', 'Conner 120MB MFM/IDE Spindle 3,600 RPM synchronized. Heads unparked.', 'OK');
         newEntries.push({
           id: Math.random().toString(),
           type: 'output',
@@ -228,6 +260,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
 
       case 'POST':
         const postArg = (arg || 'SUCCESS').toUpperCase();
+        onLogEvent?.('HARDWARE', `POST DIAGNOSTIC: ${postArg}`, `BIOS POST error diagnostic executed: ${postArg}`, postArg === 'SUCCESS' ? 'OK' : 'WARN');
         if (postArg === 'VIDEO') {
           audioSynth.playPostBeep('video_error');
           newEntries.push({
@@ -276,6 +309,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
       case 'FLOPPY':
       case 'SEEK':
         audioSynth.playFloppyDriveRead(8);
+        onLogEvent?.('DISK', 'FLOPPY DRIVE READ (SEEK)', 'Read 8 sectors from Drive A: FAT12 directory table. CRC OK.', 'OK');
         newEntries.push({
           id: Math.random().toString(),
           type: 'output',
@@ -285,6 +319,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
 
       case 'CHKDSK':
         audioSynth.playFloppyDriveRead(10);
+        onLogEvent?.('DISK', 'DISK INTEGRITY AUDIT (CHKDSK)', '61,500 total allocation units checked on Drive C:. 636KB free RAM.', 'OK');
         newEntries.push({
           id: Math.random().toString(),
           type: 'output',
@@ -294,6 +329,13 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
 
       case 'MEM':
         audioSynth.playFloppyDriveRead(3);
+        onLogEvent?.(
+          'MEMORY',
+          'CONVENTIONAL MEMORY AUDIT (MEM)',
+          'Conventional RAM: 18KB used / 622KB free (under 640KB barrier). XMS: 6,144KB free.',
+          'OK',
+          { usedKB: 18, freeKB: 622, maxKB: 640, xmsFreeKB: 6144 }
+        );
         const memReport = `Memory Type        Total  =   Used  +   Free\r\n----------------  ------     ------    ------\r\nConventional        640K        18K      622K\r\nUpper (UMB)         155K        48K      107K\r\nReserved            384K       384K        0K\r\nExtended (XMS)    7,168K     1,024K    6,144K\r\n----------------  ------     ------    ------\r\nTotal memory      8,347K     1,474K    6,873K\r\n\r\nTotal under 1 MB    795K        66K      729K\r\n\r\nLargest executable program size       621K (636,256 bytes)\r\nLargest free upper memory block       104K (106,496 bytes)\r\nMS-DOS is resident in the high memory area.`;
         newEntries.push({ id: Math.random().toString(), type: 'output', text: memReport });
         break;
@@ -303,6 +345,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
           newEntries.push({ id: Math.random().toString(), type: 'output', text: 'Required parameter missing.' });
         } else {
           audioSynth.playFloppyDriveRead(5);
+          onLogEvent?.('COMMAND', `CMD: TYPE ${arg}`, `Output stream flushed to screen for ${arg}`, 'OK');
           const upperArg = arg.toUpperCase();
           if (program && (upperArg === program.filename.toUpperCase() || upperArg === program.filename.split('.')[0])) {
             if (program.primaryType === 'ANS') {
@@ -332,17 +375,20 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
 
       case 'BEEP':
         audioSynth.beep(800, 150);
+        onLogEvent?.('AUDIO', 'PC SPEAKER BEEP', 'Timer 2 register pulsed: 800Hz / 150ms 1-bit square wave', 'OK');
         newEntries.push({ id: Math.random().toString(), type: 'output', text: 'PC Speaker: 800Hz / 150ms pulsed.' });
         break;
 
       case 'PLAY':
         const mml = arg || 'T140 O3 L8 C E G O4 C';
+        onLogEvent?.('AUDIO', `QBASIC PLAY: "${mml}"`, 'Music Macro Language parsed through PC speaker / sound chip', 'OK');
         newEntries.push({ id: Math.random().toString(), type: 'output', text: `Playing MML: "${mml}"` });
         audioSynth.playMML(mml);
         break;
 
       case 'DEGAUSS':
         audioSynth.playDegauss();
+        onLogEvent?.('HARDWARE', 'CRT COIL DEGAUSS', 'Triggered high-voltage 60Hz magnetic correction coil & static noise discharge.', 'OK');
         newEntries.push({
           id: Math.random().toString(),
           type: 'output',
@@ -357,6 +403,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
         return;
 
       case 'HELP':
+        onLogEvent?.('COMMAND', 'CMD: HELP', 'Displayed internal command reference', 'INFO');
         newEntries.push({
           id: Math.random().toString(),
           type: 'output',
@@ -366,6 +413,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
 
       case 'DEBUG':
         audioSynth.beep(440, 80);
+        onLogEvent?.('COMMAND', 'CMD: DEBUG.EXE', 'Entered 16-bit real-mode disassembler & hex dump', 'OK');
         newEntries.push({
           id: Math.random().toString(),
           type: 'output',
@@ -377,6 +425,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
 
       case 'EDIT':
         audioSynth.playFloppyDriveRead(3);
+        onLogEvent?.('COMMAND', `CMD: EDIT ${arg || 'UNTITLED'}`, 'Opened MS-DOS full screen editor in blue screen mode.', 'INFO');
         setIsEditorOpen(true);
         setEditorFilename(arg || (program ? program.filename : 'UNTITLED.TXT'));
         setEditorContent(program ? program.primaryCode : '@ECHO OFF\r\nECHO New DOS script\r\n');
@@ -394,6 +443,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
 
       default:
         audioSynth.playPostBeep('ram_error');
+        onLogEvent?.('COMMAND', `BAD COMMAND: ${trimmed}`, `Bad command or file name: "${trimmed}" (returned ERRORLEVEL 1)`, 'ERR');
         newEntries.push({
           id: Math.random().toString(),
           type: 'output',

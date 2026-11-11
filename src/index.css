@@ -81,6 +81,21 @@
   animation: degauss-shake 0.8s ease-out;
 }
 
+/* Retro Ticker Tape Marquee */
+@keyframes ticker-marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: inline-flex;
+  animation: ticker-marquee 28s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
 /* Custom retro scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

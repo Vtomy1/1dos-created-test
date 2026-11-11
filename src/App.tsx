@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { DosProgramResult, PhosphorTheme } from './types/dos';
+import React, { useState, useRef } from 'react';
+import { DosProgramResult, PhosphorTheme, SystemEvent, SystemEventType } from './types/dos';
 import { DOS_PRESETS } from './utils/dosPresets';
 import { CrtMonitor } from './components/CrtMonitor';
 import { DosTerminal } from './components/DosTerminal';
 import { PromptCompiler } from './components/PromptCompiler';
 import { CompatibilityMatrix } from './components/CompatibilityMatrix';
 import { FloppyDiskExport } from './components/FloppyDiskExport';
+import { SystemEventsTab } from './components/SystemEventsTab';
 import { audioSynth } from './utils/audioSynth';
 import { 
   Terminal, 
@@ -20,10 +21,12 @@ import {
   Layers,
   Copy,
   Check,
-  FileText
+  FileText,
+  Activity
 } from 'lucide-react';
 
-type ActiveTab = 'terminal' | 'source' | 'compatibility' | 'export';
+type ActiveTab = 'terminal' | 'source' | 'compatibility' | 'export' | 'events';
+
 
 export default function App() {
   const [currentProgram, setCurrentProgram] = useState<DosProgramResult>(
@@ -35,9 +38,86 @@ export default function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
+  // System Events Ticker Tape State
+  const [systemEvents, setSystemEvents] = useState<SystemEvent[]>([
+    {
+      id: 'init-1',
+      timestamp: '12:00:01',
+      cycle: 1024,
+      type: 'BOOT',
+      title: 'SYSTEM COLD BOOT INITIALIZED',
+      detail: 'IBM BIOS Real-Mode x86 environment ready. 640KB conventional memory barrier active.',
+      status: 'OK',
+      badge: 'BOOT OK',
+      metadata: { cpu: 'Intel 8086/8088', mem: '640KB', pit: '8253', bios: 'IBM 1981' },
+    },
+    {
+      id: 'init-2',
+      timestamp: '12:00:02',
+      cycle: 2154,
+      type: 'HARDWARE',
+      title: 'AUDIO & VIDEO SUBSYSTEM INITIALIZED',
+      detail: 'Standard 80x25 text buffer mapped at B800h. 1-bit PC Speaker port 61h timer active.',
+      status: 'OK',
+      badge: 'HW OK',
+      metadata: { vgaBuffer: '0xB800', pcSpeakerPort: '0x61', dmaChannels: 4 },
+    },
+    {
+      id: 'init-3',
+      timestamp: '12:00:03',
+      cycle: 3410,
+      type: 'DISK',
+      title: 'VIRTUAL DRIVE A: INITIALIZED',
+      detail: 'Drive A: (3.5" 1.44MB Floppy) mounted with FAT12 filesystem image.',
+      status: 'OK',
+      badge: 'FAT12',
+      metadata: { sectorsPerCluster: 1, reservedSectors: 1, rootEntries: 224 },
+    },
+  ]);
+  const cycleCounterRef = useRef<number>(4000);
+
+  const handleLogEvent = (
+    type: SystemEventType,
+    title: string,
+    detail: string,
+    status: 'OK' | 'WARN' | 'INFO' | 'ERR' = 'OK',
+    metadata?: Record<string, string | number>
+  ) => {
+    cycleCounterRef.current += Math.floor(Math.random() * 250) + 120;
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
+    const newEvent: SystemEvent = {
+      id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: timeStr,
+      cycle: cycleCounterRef.current,
+      type,
+      title,
+      detail,
+      status,
+      badge: status === 'OK' ? 'PASSED' : status === 'WARN' ? 'WARN' : status === 'ERR' ? 'ERR' : 'INFO',
+      metadata,
+    };
+
+    setSystemEvents((prev) => [...prev, newEvent]);
+  };
+
   const handleProgramCompiled = (newProg: DosProgramResult) => {
     setCurrentProgram(newProg);
     setActiveTab('terminal');
+    handleLogEvent(
+      'HARDWARE',
+      `DOS PROGRAM LOADED: ${newProg.filename}`,
+      `Compiled "${newProg.title}" (${newProg.primaryType}). Video profile: ${newProg.audioVideoProfile.videoMode}. Conventional memory: ${newProg.memoryRequirements.conventionalKB}KB.`,
+      'OK',
+      {
+        filename: newProg.filename,
+        type: newProg.primaryType,
+        conventionalKB: newProg.memoryRequirements.conventionalKB,
+        requiresEMS: newProg.memoryRequirements.requiresEMS ? 1 : 0,
+        minDos: newProg.memoryRequirements.minDosVersion,
+      }
+    );
   };
 
   const toggleSound = () => {
@@ -51,6 +131,12 @@ export default function App() {
     navigator.clipboard.writeText(currentProgram.primaryCode);
     setCopiedCode(true);
     audioSynth.beep(900, 50);
+    handleLogEvent(
+      'COMMAND',
+      `CLIPBOARD EXPORT: ${currentProgram.filename}`,
+      `Copied ${currentProgram.primaryCode.length} bytes of raw source code to system clipboard buffer.`,
+      'INFO'
+    );
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
@@ -94,7 +180,22 @@ export default function App() {
 
     setCurrentProgram(patchedProgram);
     audioSynth.playFmChime(660, 300);
+
+    handleLogEvent(
+      'PATCH',
+      'UNIVERSAL 8088 SAFE PATCH APPLIED',
+      `Opcodes downgraded to 8088/8086 real-mode instructions. Bypassed HIMEM/EMM386 managers. Conventional memory ceiling locked to <=64KB.`,
+      'OK',
+      {
+        targetCpu: 'Intel 8088 / 8086',
+        conventionalCapKB: 64,
+        emsRequired: 0,
+        xmsRequired: 0,
+        minDos: '2.11',
+      }
+    );
   };
+
 
   return (
     <div className="min-h-screen bg-[#090b0e] text-[#c9d1d9] flex flex-col font-sans">
@@ -170,7 +271,25 @@ export default function App() {
               <Disc size={14} />
               <span>Floppy (.IMG)</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('events')}
+              className={`px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 font-bold ${
+                activeTab === 'events'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-[#8b949e] hover:text-white hover:bg-[#21262d]'
+              }`}
+            >
+              <Activity size={14} />
+              <span>System Events</span>
+              {systemEvents.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  {systemEvents.length}
+                </span>
+              )}
+            </button>
           </div>
+
 
           {/* Right Phosphor & Audio Controls */}
           <div className="flex items-center space-x-2">
@@ -233,7 +352,11 @@ export default function App() {
                 onThemeChange={setPhosphorTheme}
                 titleBar={`MS-DOS 6.22 VIRTUAL MACHINE - [${currentProgram.filename}]`}
               >
-                <DosTerminal program={currentProgram} theme={phosphorTheme} />
+                <DosTerminal
+                  program={currentProgram}
+                  theme={phosphorTheme}
+                  onLogEvent={handleLogEvent}
+                />
               </CrtMonitor>
             </div>
           )}
@@ -308,7 +431,16 @@ export default function App() {
           {activeTab === 'export' && (
             <FloppyDiskExport program={currentProgram} />
           )}
+
+          {activeTab === 'events' && (
+            <SystemEventsTab
+              events={systemEvents}
+              onClearEvents={() => setSystemEvents([])}
+              onAddCustomEvent={handleLogEvent}
+            />
+          )}
         </div>
+
       </main>
 
       {/* Retro Footer */}
