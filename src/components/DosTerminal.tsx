@@ -341,6 +341,15 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
         audioSynth.playMML(mml);
         break;
 
+      case 'DEGAUSS':
+        audioSynth.playDegauss();
+        newEntries.push({
+          id: Math.random().toString(),
+          type: 'output',
+          text: `DEGAUSS COIL ACTIVE (IBM 5153 / MultiSync CRT)\r\n  Relay clunk engaged.\r\n  High-voltage thermistor discharging AC field through chassis coil.\r\n  Shadow mask magnetic purity restored. Electrostatic static noise dissipated.`,
+        });
+        break;
+
       case 'SAVE':
       case 'LOG':
       case 'DUMP':
@@ -351,7 +360,7 @@ export const DosTerminal: React.FC<DosTerminalProps> = ({ program, theme }) => {
         newEntries.push({
           id: Math.random().toString(),
           type: 'output',
-          text: `AVAILABLE MS-DOS COMMANDS:\r\n  SAVE [file.txt]  - Save terminal output to .TXT (triggers hard drive spin-up)\r\n  RUN [file]       - Execute current compiled DOS program\r\n  DIR [/W]         - Display files with floppy seek audio\r\n  TYPE [file]      - Display file contents / ANSI art\r\n  SPINUP           - Trigger MFM/IDE Hard Drive spindle & head unpark\r\n  POST [CODE]      - Test BIOS POST beeps (SUCCESS, VIDEO, RAM, KEYBOARD, A20)\r\n  FLOPPY           - Trigger 3.5" Floppy Drive read sound & seek\r\n  CHKDSK           - Perform disk integrity check\r\n  EDIT [file]      - Open vintage MS-DOS blue screen editor\r\n  MEM              - Display conventional (640K), UMB, XMS memory\r\n  VER              - Display MS-DOS version\r\n  PLAY [MML]       - Play Music Macro Language through PC speaker\r\n  BEEP             - Test 1-bit PC Speaker\r\n  DEBUG            - Enter 16-bit x86 debugger / disassembler\r\n  REBOOT           - Cold boot: Drive spinup + POST beep\r\n  CLS              - Clear screen`,
+          text: `AVAILABLE MS-DOS COMMANDS:\r\n  DEGAUSS          - Trigger CRT magnetic correction coil & static noise\r\n  SAVE [file.txt]  - Save terminal output to .TXT (triggers hard drive spin-up)\r\n  RUN [file]       - Execute current compiled DOS program\r\n  DIR [/W]         - Display files with floppy seek audio\r\n  TYPE [file]      - Display file contents / ANSI art\r\n  SPINUP           - Trigger MFM/IDE Hard Drive spindle & head unpark\r\n  POST [CODE]      - Test BIOS POST beeps (SUCCESS, VIDEO, RAM, KEYBOARD, A20)\r\n  FLOPPY           - Trigger 3.5" Floppy Drive read sound & seek\r\n  CHKDSK           - Perform disk integrity check\r\n  EDIT [file]      - Open vintage MS-DOS blue screen editor\r\n  MEM              - Display conventional (640K), UMB, XMS memory\r\n  VER              - Display MS-DOS version\r\n  PLAY [MML]       - Play Music Macro Language through PC speaker\r\n  BEEP             - Test 1-bit PC Speaker\r\n  DEBUG            - Enter 16-bit x86 debugger / disassembler\r\n  REBOOT           - Cold boot: Drive spinup + POST beep\r\n  CLS              - Clear screen`,
         });
         break;
 

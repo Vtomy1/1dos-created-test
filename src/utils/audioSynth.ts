@@ -360,8 +360,65 @@ class RetroAudioSynth {
   }
 
   /**
-   * CRT Degauss Coil discharge sound
-   * Low hum followed by decaying magnetic resonance
+   * High-Voltage Electrostatic Static Noise / White Noise Crackle
+   * Simulates the electrostatic discharge and shadow mask static crackle of CRT monitors
+   */
+  public playStaticNoise(durationMs = 850): void {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const durSec = durationMs / 1000;
+      const sampleRate = this.ctx.sampleRate;
+      const bufferSize = Math.floor(sampleRate * durSec);
+      const buffer = this.ctx.createBuffer(1, bufferSize, sampleRate);
+      const data = buffer.getChannelData(0);
+
+      // Warm CRT static-noise algorithm (combination of white and pink noise)
+      let b0 = 0, b1 = 0, b2 = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        // 3-pole pinking filter
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        const pink = b0 + b1 + b2 + white * 0.5362;
+        data[i] = pink * 0.25;
+      }
+
+      const noiseSource = this.ctx.createBufferSource();
+      noiseSource.buffer = buffer;
+
+      // Bandpass filter to model the acoustic resonance of a CRT glass tube housing
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1400, now);
+      filter.frequency.exponentialRampToValueAtTime(320, now + durSec);
+      filter.Q.setValueAtTime(1.5, now);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(this.volume * 0.55, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + durSec);
+
+      noiseSource.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      noiseSource.start(now);
+      noiseSource.stop(now + durSec);
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
+   * CRT Degauss Coil discharge sound with static noise
+   * Simulates the complete magnetic correction process of vintage monitors:
+   * 1. Solenoid/relay mechanical thump
+   * 2. Heavy 60Hz alternating electromagnetic coil rumble & decay
+   * 3. High-voltage electrostatic static-noise crackle as shadow mask demagnetizes
    */
   public playDegauss(): void {
     if (this.isMuted) return;
@@ -370,21 +427,38 @@ class RetroAudioSynth {
 
     try {
       const now = this.ctx.currentTime;
+
+      // 1. Initial mechanical relay thump ("THUNK")
+      const thunkOsc = this.ctx.createOscillator();
+      const thunkGain = this.ctx.createGain();
+      thunkOsc.type = 'square';
+      thunkOsc.frequency.setValueAtTime(120, now);
+      thunkOsc.frequency.exponentialRampToValueAtTime(25, now + 0.07);
+      thunkGain.gain.setValueAtTime(this.volume * 0.65, now);
+      thunkGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      thunkOsc.connect(thunkGain);
+      thunkGain.connect(this.ctx.destination);
+      thunkOsc.start(now);
+      thunkOsc.stop(now + 0.09);
+
+      // 2. Heavy 60Hz electromagnetic mains coil hum decaying into silence
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
-
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(60, now); // 60Hz mains magnetic field
-      osc.frequency.exponentialRampToValueAtTime(45, now + 0.7);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.75);
 
-      gain.gain.setValueAtTime(this.volume * 0.6, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+      gain.gain.setValueAtTime(this.volume * 0.7, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
 
       osc.start(now);
-      osc.stop(now + 0.8);
+      osc.stop(now + 0.85);
+
+      // 3. Static noise burst simulating electrostatic magnetic discharge
+      this.playStaticNoise(800);
     } catch {
       // ignore
     }

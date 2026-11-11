@@ -65,14 +65,14 @@ export const CrtMonitor: React.FC<CrtMonitorProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
-            {/* Primary Degauss Button in CRT Monitor Controls */}
+            {/* Primary Degauss Button in CRT Monitor Header */}
             <button
               onClick={handleDegauss}
               disabled={isDegaussing}
-              className={`px-2.5 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#30363d] border border-[#3b434d] text-[#e3b341] hover:text-[#f2cc60] transition flex items-center space-x-1.5 shadow-sm font-mono text-xs cursor-pointer ${
-                isDegaussing ? 'opacity-70 scale-95 ring-2 ring-amber-500/50 bg-amber-950/40 text-amber-300' : ''
+              className={`px-3 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#2e343d] border border-[#3b434d] text-[#e3b341] hover:text-[#f2cc60] transition flex items-center space-x-1.5 shadow-sm font-mono text-xs cursor-pointer ${
+                isDegaussing ? 'opacity-75 scale-95 ring-2 ring-amber-500/60 bg-amber-950/50 text-amber-300' : ''
               }`}
-              title="Degauss CRT Tube (Demagnetize Shadow Mask with audioSynth.playDegauss)"
+              title="Degauss CRT Monitor: Triggers 'animate-degauss' screen shake and plays static-noise magnetic correction sound effect"
             >
               <Zap size={14} className={isDegaussing ? 'animate-bounce text-amber-400' : 'text-amber-400'} />
               <span className="font-bold">{isDegaussing ? 'Degaussing...' : 'Degauss'}</span>
@@ -80,7 +80,7 @@ export const CrtMonitor: React.FC<CrtMonitorProps> = ({
 
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="px-2 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#30363d] border border-[#30363d] text-[#8b949e] hover:text-white transition flex items-center space-x-1"
+              className="px-2.5 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#30363d] border border-[#30363d] text-[#8b949e] hover:text-white transition flex items-center space-x-1"
               title="Display Settings"
             >
               <Sliders size={14} />
@@ -228,6 +228,11 @@ export const CrtMonitor: React.FC<CrtMonitorProps> = ({
 
           {/* Glass reflection gradient highlight */}
           <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.015] to-white/[0.04] pointer-events-none z-30" />
+
+          {/* Magnetic Correction Electrostatic Flash & Color Fringe Overlay */}
+          {isDegaussing && (
+            <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 via-green-500/25 to-blue-500/20 mix-blend-color-dodge pointer-events-none z-40 animate-pulse" />
+          )}
         </div>
 
         {/* Bottom monitor panel with authentic hardware badges */}
